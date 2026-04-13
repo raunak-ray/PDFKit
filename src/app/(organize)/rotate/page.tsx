@@ -9,83 +9,54 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
-import { mergePdf } from "@/lib/pdfTools";
+import { rotatePdf } from "@/lib/pdfTools";
 import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 
-// dnd-kit imports
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-} from "@dnd-kit/sortable";
-import SortableItem from "@/components/SortableItem";
+const PdfPreview = dynamic(() => import("@/components/PdfPreview"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-35 flex items-center justify-center text-sm text-gray-500">
+      Loading...
+    </div>
+  ),
+});
 
 const tool = {
-  id: "merge",
-  name: "Merge PDF",
-  description: "Combine multiple PDFs into one",
-  colorClass: "bg-purple-600",
+  id: "rotate",
+  name: "Rotate Pages",
+  description: "Rotate pages in any direction",
 };
 
-// helper to generate stable id
-const getFileId = (file: File) =>
-  `${file.name}-${file.size}-${file.lastModified}`;
+const possibleRotate = [
+  { name: "0°", value: 0 },
+  { name: "90°", value: 90 },
+  { name: "180°", value: 180 },
+  { name: "270°", value: 270 },
+];
 
 export default function Page() {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const [files, setFiles] = useState<{ file: File; url: string }[]>([]);
+  // ✅ single file instead of array
+  const [file, setFile] = useState<{ file: File; url: string } | null>(null);
 
-  // Sensors (smooth dragging)
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // prevents accidental drag
-      },
-    }),
-  );
+  const [selectedRotation, setSelectedRotation] = useState<number>(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
+    if (!e.target.files || !e.target.files[0]) return;
 
-    const newFiles = Array.from(e.target.files).map((file) => ({
-      file,
-      url: URL.createObjectURL(file),
-    }));
+    const selectedFile = e.target.files[0];
 
-    setFiles((prev) => [...prev, ...newFiles]);
-  };
+    // cleanup old URL
+    if (file?.url) URL.revokeObjectURL(file.url);
 
-  const removeFile = (id: string) => {
-    setFiles((prev) => {
-      const removed = prev.find((f) => getFileId(f.file) === id);
-      if (removed) URL.revokeObjectURL(removed.url);
-
-      return prev.filter((f) => getFileId(f.file) !== id);
+    setFile({
+      file: selectedFile,
+      url: URL.createObjectURL(selectedFile),
     });
-  };
-
-  // Drag End Logic
-  const handleDragEnd = (event: any) => {
-    const { active, over } = event;
-
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = files.findIndex((f) => getFileId(f.file) === active.id);
-
-    const newIndex = files.findIndex((f) => getFileId(f.file) === over.id);
-
-    setFiles((items) => arrayMove(items, oldIndex, newIndex));
   };
 
   return (
@@ -99,7 +70,7 @@ export default function Page() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Merge Pdf</BreadcrumbPage>
+              <BreadcrumbPage>Rotate Pdf</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -118,7 +89,7 @@ export default function Page() {
         <div className="mt-5">
           <input
             type="file"
-            multiple
+            multiple={false}
             accept="application/pdf"
             ref={inputRef}
             className="hidden"
@@ -134,37 +105,54 @@ export default function Page() {
                 <Upload className="text-purple-400 w-5 h-5" />
               </div>
               <h2 className="text-lg font-bold text-[#112636]">
-                Drop PDF To Merge
+                Drop PDF To Rotate
               </h2>
               <p className="text-[#2f373e] text-xs">or click to browse</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Drag + Grid */}
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={files.map((f) => getFileId(f.file))}
-            strategy={rectSortingStrategy}
-          >
-            <div className="mt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {files.map((item) => (
-                <SortableItem
-                  key={getFileId(item.file)}
-                  item={item}
-                  removeFile={removeFile}
-                />
+        {/* Controls + Preview */}
+        {file && (
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div className="grid grid-cols-4 gap-4">
+              {possibleRotate.map((item) => (
+                <motion.button
+                  key={item.name}
+                  value={item.value}
+                  onClick={() => setSelectedRotation(item.value)}
+                  whileHover={{
+                    boxShadow: "8px 8px 0 #111",
+                    x: -2,
+                    y: -2,
+                  }}
+                  whileTap={{
+                    scale: 0.95,
+                    boxShadow: "2px 2px 0 #111",
+                  }}
+                  transition={{ duration: 0.2 }}
+                  className={`${
+                    selectedRotation === item.value
+                      ? "bg-purple-500 text-white hover:bg-purple-500"
+                      : "bg-white/50 text-black hover:bg-yellow-500"
+                  } text-lg font-bold rounded-full h-12 w-full shadow-[4px_4px_0_#111] border-2 border-black cursor-pointer`}
+                >
+                  {item.name}
+                </motion.button>
               ))}
             </div>
-          </SortableContext>
-        </DndContext>
 
-        {/* Merge Button */}
-        {files.length > 0 && (
+            {/* Preview */}
+            <div className="h-75 overflow-hidden rounded-md">
+              {file && (
+                <PdfPreview url={file.url} rotation={selectedRotation} />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Action Button */}
+        {file && (
           <motion.button
             className="mt-5 bg-purple-500 font-bold text-white shadow-[5px_5px_0_#111] border-2 border-black px-4 py-2 rounded-lg w-full md:w-auto cursor-pointer"
             whileHover={{
@@ -176,9 +164,9 @@ export default function Page() {
               scale: 0.95,
             }}
             transition={{ duration: 0.2 }}
-            onClick={() => mergePdf(files.map((item) => item.file))}
+            onClick={() => rotatePdf(file.file, selectedRotation)}
           >
-            Merge Pdf
+            Rotate Pdf
           </motion.button>
         )}
       </div>

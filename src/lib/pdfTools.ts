@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { degrees, PDFDocument } from "pdf-lib";
 
 function downloadAsPdf(blob: Uint8Array, fileName: string) {
   const blobUrl = URL.createObjectURL(
@@ -18,7 +18,9 @@ export async function mergePdf(files: File[]) {
 
   for (const file of files) {
     const fileBuffer = await file.arrayBuffer();
-    const fileBytes = await PDFDocument.load(fileBuffer, {ignoreEncryption: true});
+    const fileBytes = await PDFDocument.load(fileBuffer, {
+      ignoreEncryption: true,
+    });
 
     const copiedPages = await mergedDocument.copyPages(
       fileBytes,
@@ -33,4 +35,25 @@ export async function mergePdf(files: File[]) {
   const mergedBytes: Uint8Array = await mergedDocument.save();
 
   downloadAsPdf(mergedBytes, "Merged.pdf");
+}
+
+export async function rotatePdf(file: File, rotation: number) {
+  const pdfBytes = await file.arrayBuffer();
+  const pdfBuffer = await PDFDocument.load(pdfBytes);
+
+  const newPdf = await PDFDocument.create();
+
+  const copiedPages = await newPdf.copyPages(
+    pdfBuffer,
+    pdfBuffer.getPageIndices(),
+  );
+
+  copiedPages.forEach((page) => {
+    page.setRotation(degrees(rotation));
+    newPdf.addPage(page);
+  });
+
+  const newPdfByte: Uint8Array = await newPdf.save();
+
+  downloadAsPdf(newPdfByte, `${file.name.split(".")[0]}_rotated.pdf`);
 }
