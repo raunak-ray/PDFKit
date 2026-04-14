@@ -27,9 +27,7 @@ export default function Page() {
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
-  const handleFileChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0]) return;
 
     const selectedFile = e.target.files[0];
@@ -54,7 +52,6 @@ export default function Page() {
   return (
     <div className="flex-1 dot-pattern">
       <div className="max-w-lg md:max-w-2xl lg:max-w-5xl px-4 py-6 mx-auto">
-
         {/* Breadcrumb */}
         <Breadcrumb>
           <BreadcrumbList>
@@ -106,9 +103,7 @@ export default function Page() {
 
         {/* Loading */}
         {loading && (
-          <p className="mt-5 text-sm text-gray-500">
-            Extracting text...
-          </p>
+          <p className="mt-5 text-sm text-gray-500">Extracting text...</p>
         )}
 
         {/* Text Output */}
@@ -121,7 +116,6 @@ export default function Page() {
             />
 
             <div className="flex flex-col md:flex-row gap-3 mt-4">
-
               {/* Download */}
               <motion.button
                 className="bg-purple-500 font-bold text-white shadow-[5px_5px_0_#111] border-2 border-black px-4 py-2 rounded-lg w-full md:w-auto"
@@ -149,7 +143,6 @@ export default function Page() {
               >
                 Copy Text
               </motion.button>
-
             </div>
           </div>
         )}
